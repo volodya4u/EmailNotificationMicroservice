@@ -18,7 +18,7 @@ import org.springframework.web.client.RestTemplate;
 @KafkaListener(topics="product-created-events-topic")
 public class ProductCreatedEventHandler {
 
-    private RestTemplate restTemplate;
+    private final RestTemplate restTemplate;
 
     public ProductCreatedEventHandler(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
