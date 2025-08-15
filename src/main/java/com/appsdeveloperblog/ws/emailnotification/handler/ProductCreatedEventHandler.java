@@ -43,6 +43,15 @@ public class ProductCreatedEventHandler {
         log.info("Received a new event {} with productId: {}",
                 productCreatedEvent.getTitle(),  productCreatedEvent.getProductId());
 
+        // Check if this message was already processed before
+
+        ProcessedEventEntity existingRecord = processedEventRepository.findByMessageId(messageId);
+
+        if (existingRecord != null) {
+            log.info("Found a duplicate message id: {}", existingRecord.getMessageId());
+            return;
+        }
+
         String requestUrl = "http://localhost:8082";
 
         try {
