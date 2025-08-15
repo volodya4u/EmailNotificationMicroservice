@@ -10,7 +10,6 @@ import java.io.Serializable;
 
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
 @Entity
 @Table(name="processed-events")
@@ -29,4 +28,8 @@ public class ProcessedEventEntity implements Serializable {
     private String productId;
 
 
+    public ProcessedEventEntity(String messageId, String productId) {
+        this.messageId = messageId;
+        this.productId = productId;
+    }
 }
