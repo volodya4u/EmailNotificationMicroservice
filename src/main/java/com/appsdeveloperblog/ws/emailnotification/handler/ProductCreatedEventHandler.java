@@ -1,6 +1,6 @@
 package com.appsdeveloperblog.ws.emailnotification.handler;
 
-import com.appsdeveloperblog.ws.core.ProductCreatedEvent;
+import com.appsdeveloperblog.ws.core.events.ProductCreatedEvent;
 import com.appsdeveloperblog.ws.emailnotification.error.NotRetryableException;
 import com.appsdeveloperblog.ws.emailnotification.error.RetryableException;
 import com.appsdeveloperblog.ws.emailnotification.io.ProcessedEventEntity;
