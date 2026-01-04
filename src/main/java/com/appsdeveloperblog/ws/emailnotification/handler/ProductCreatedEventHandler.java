@@ -27,7 +27,7 @@ public class ProductCreatedEventHandler {
 
     private final RestTemplate restTemplate;
 
-    private ProcessedEventRepository processedEventRepository;
+    private final ProcessedEventRepository processedEventRepository;
 
     public ProductCreatedEventHandler(RestTemplate restTemplate,
                                       ProcessedEventRepository processedEventRepository) {
