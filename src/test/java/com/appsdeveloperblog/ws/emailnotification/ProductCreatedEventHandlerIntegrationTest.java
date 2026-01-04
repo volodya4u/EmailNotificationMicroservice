@@ -1,24 +1,33 @@
 package com.appsdeveloperblog.ws.emailnotification;
 
 import com.appsdeveloperblog.ws.core.events.ProductCreatedEvent;
+import com.appsdeveloperblog.ws.emailnotification.handler.ProductCreatedEventHandler;
 import com.appsdeveloperblog.ws.emailnotification.io.ProcessedEventEntity;
 import com.appsdeveloperblog.ws.emailnotification.io.ProcessedEventRepository;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.*;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.test.context.EmbeddedKafka;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-@EmbeddedKafka
+@ActiveProfiles("test")
+@EmbeddedKafka(partitions = 1, topics = "product-created-events-topic")
 @SpringBootTest(properties="spring.kafka.consumer.bootstrap-servers=${spring.embedded.kafka.brokers}")
 public class ProductCreatedEventHandlerIntegrationTest {
 
@@ -28,8 +37,14 @@ public class ProductCreatedEventHandlerIntegrationTest {
     @MockitoBean
     RestTemplate restTemplate;
 
+    @Autowired
+    KafkaTemplate<String, Object> kafkaTemplate;
+
+    @MockitoSpyBean
+    ProductCreatedEventHandler productCreatedEventHandler;
+
     @Test
-    public void testProductCreatedEventHandler_OnProductCreated_HandlesEvent() {
+    public void testProductCreatedEventHandler_OnProductCreated_HandlesEvent() throws ExecutionException, InterruptedException {
 
         // Arrange
         ProductCreatedEvent productCreatedEvent = new ProductCreatedEvent();
@@ -41,7 +56,7 @@ public class ProductCreatedEventHandlerIntegrationTest {
         String messageId = UUID.randomUUID().toString();
         String messageKey = productCreatedEvent.getProductId();
 
-        ProducerRecord<String, ProductCreatedEvent> record
+        ProducerRecord<String, Object> record
                 = new ProducerRecord<>(
                         "product-created-events-topic",
                 messageKey,
@@ -52,27 +67,35 @@ public class ProductCreatedEventHandlerIntegrationTest {
         record.headers().add(KafkaHeaders.RECEIVED_KEY, messageKey.getBytes());
 
         ProcessedEventEntity processedEventEntity = new ProcessedEventEntity();
-        when(processedEventRepository.findByMessageId(anyString()))
-                .thenReturn(processedEventEntity);
-        when(processedEventRepository.save(any(ProcessedEventEntity.class)))
-                .thenReturn(null);
+        when(processedEventRepository.findByMessageId(anyString())).thenReturn(processedEventEntity);
+        when(processedEventRepository.save(any(ProcessedEventEntity.class))).thenReturn(null);
 
         String responseBody = "{\"key\":\"value\"}";
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        ResponseEntity<String> responseEntity
-                = new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
+        ResponseEntity<String> responseEntity = new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
 
         when(restTemplate.exchange(
                 any(String.class),
                 any(HttpMethod.class),
-                isNull(), eq(String.class)))
-        .thenReturn(responseEntity);
+                isNull(), eq(String.class)
+        )).thenReturn(responseEntity);
 
         // Act
-
+        kafkaTemplate.send(record).get();
 
         // Assert
+        ArgumentCaptor<String> messageIdCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> messageKeyCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<ProductCreatedEvent> eventCaptor = ArgumentCaptor.forClass(ProductCreatedEvent.class);
+
+        verify(productCreatedEventHandler, timeout(5000).times(1)).handle(eventCaptor.capture(),
+                messageIdCaptor.capture(),
+                messageKeyCaptor.capture());
+
+        assertEquals(messageId, messageIdCaptor.getValue());
+        assertEquals(messageKey, messageKeyCaptor.getValue());
+        assertEquals(productCreatedEvent.getProductId(), eventCaptor.getValue().getProductId());
 
     }
 
